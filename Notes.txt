@@ -1,0 +1,7 @@
+
+
+main.py 에서 모델 관련한 코드(stabilityai/stable-diffusion-3.5-medium)는 model 폴더밑에 diffusion.py 를 만들고 
+그 안에 클래스를 적정하게 이름을 붙여서 싱글턴으로 사용하도록 해주세요.
+
+
+main.py는 라우터 역할을 하고 실제 restapi폴더 밑에 py파일을 만들어서 get/post를 처리하도록 하주세요.

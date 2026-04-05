@@ -1,3 +1,2 @@
-# 2team-GenPrj-model
-고급 프로젝트모델
-diffusion모델
+1. stable/diffusion을 위한 fastapi프로젝트.
+/doc/CONVENTION.md 를 준수 한다.
