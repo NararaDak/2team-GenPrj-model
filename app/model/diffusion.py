@@ -1,6 +1,11 @@
-from diffusers import StableDiffusion3Pipeline, StableDiffusion3Img2ImgPipeline
+from typing import Any
+
 import torch
 from PIL import Image
+from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import StableDiffusion3Pipeline
+from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3_img2img import (
+    StableDiffusion3Img2ImgPipeline,
+)
 
 
 MODEL_ID = "stabilityai/stable-diffusion-3.5-medium"
@@ -38,32 +43,48 @@ class StableDiffusionService:
         self._pipe.vae.enable_tiling()
         self._initialized = True
 
-    def generate(self, prompt: str):
+    def _extract_first_image(self, result: Any):
+        images = getattr(result, "images", None)
+        if not images:
+            raise RuntimeError("이미지 생성 결과를 찾을 수 없습니다.")
+        return images[0]
+
+    def generate(self, positive_prompt: str, negative_prompt: str | None = None):
         with torch.inference_mode():
-            return self._pipe(
-                prompt=prompt,
+            result: Any = self._pipe(
+                prompt=positive_prompt,
+                negative_prompt=negative_prompt,
                 num_inference_steps=NUM_INFERENCE_STEPS,
                 guidance_scale=GUIDANCE_SCALE,
                 max_sequence_length=MAX_SEQUENCE_LENGTH,
-            ).images[0]
+            )
+        return self._extract_first_image(result)
 
-    def change_image(self, prompt: str, init_image, strength: float):
+    def change_image(
+        self,
+        positive_prompt: str,
+        init_image,
+        strength: float,
+        negative_prompt: str | None = None,
+    ):
         # SD3.5는 64의 배수 크기를 요구 - 호환되지 않는 크기는 잠재 텐서 오류 유발
         w, h = init_image.size
         new_w = max(64, (w // 64) * 64)
         new_h = max(64, (h // 64) * 64)
         if new_w != w or new_h != h:
-            init_image = init_image.resize((new_w, new_h), Image.LANCZOS)
+            init_image = init_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
         with torch.inference_mode():
-            return self._img2img_pipe(
-                prompt=prompt,
+            result: Any = self._img2img_pipe(
+                prompt=positive_prompt,
+                negative_prompt=negative_prompt,
                 image=init_image,
                 strength=strength,
                 num_inference_steps=NUM_INFERENCE_STEPS,
                 guidance_scale=GUIDANCE_SCALE,
                 max_sequence_length=MAX_SEQUENCE_LENGTH,
-            ).images[0]
+            )
+        return self._extract_first_image(result)
 
 
 diffusion_service = StableDiffusionService()

@@ -11,9 +11,18 @@ router = APIRouter()
 
 
 class ChangeImageRequest(BaseModel):
-    prompt: str
+    prompt: str | None = None
+    positive_prompt: str | None = None
+    negative_prompt: str | None = None
     image_base64: str = Field(..., description="Base64 encoded image bytes (optionally data URL)")
     strength: float = 0.55
+
+
+def _resolve_positive_prompt(prompt: str | None, positive_prompt: str | None) -> str:
+    resolved_prompt = (positive_prompt or prompt or "").strip()
+    if not resolved_prompt:
+        raise HTTPException(status_code=400, detail="positive_prompt 또는 prompt는 필수입니다.")
+    return resolved_prompt
 
 
 @router.post("/changeimage")
@@ -22,8 +31,9 @@ async def change_image(req: ChangeImageRequest):
         raise HTTPException(status_code=400, detail="strength는 0.0~1.0 범위여야 합니다.")
 
     applied_strength = 0.01 if req.strength == 0.0 else req.strength
+    resolved_prompt = _resolve_positive_prompt(req.prompt, req.positive_prompt)
 
-    print(f"🛠️ 이미지 변환 요청 프롬프트: {req.prompt}")
+    print(f"🛠️ 이미지 변환 요청 positive_prompt: {resolved_prompt}")
 
     raw_base64 = req.image_base64
     if "," in raw_base64:
@@ -36,7 +46,8 @@ async def change_image(req: ChangeImageRequest):
         raise HTTPException(status_code=400, detail="유효한 base64 이미지가 아닙니다.") from exc
 
     image = diffusion_service.change_image(
-        prompt=req.prompt,
+        positive_prompt=resolved_prompt,
+        negative_prompt=req.negative_prompt,
         init_image=init_image,
         strength=applied_strength,
     )
