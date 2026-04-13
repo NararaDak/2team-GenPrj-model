@@ -3,8 +3,6 @@ from io import BytesIO
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
-from model.diffusion import diffusion_service
-
 router = APIRouter()
 
 
@@ -12,6 +10,15 @@ class GenerateImageRequest(BaseModel):
     prompt: str | None = None
     positive_prompt: str | None = None
     negative_prompt: str | None = None
+
+
+def _get_diffusion_service():
+    if __package__ == "app.restapi":
+        from ..model.diffusion import diffusion_service
+    else:
+        from model.diffusion import diffusion_service
+
+    return diffusion_service
 
 
 def _resolve_positive_prompt(prompt: str | None, positive_prompt: str | None) -> str:
@@ -30,7 +37,7 @@ async def generate(
     resolved_prompt = _resolve_positive_prompt(prompt, positive_prompt)
     print(f"🎨 요청받은 positive_prompt: {resolved_prompt}")
 
-    image = diffusion_service.generate(
+    image = _get_diffusion_service().generate(
         positive_prompt=resolved_prompt,
         negative_prompt=negative_prompt,
     )
@@ -47,7 +54,7 @@ async def generate_with_body(req: GenerateImageRequest):
     resolved_prompt = _resolve_positive_prompt(req.prompt, req.positive_prompt)
     print(f"🎨 요청받은 positive_prompt: {resolved_prompt}")
 
-    image = diffusion_service.generate(
+    image = _get_diffusion_service().generate(
         positive_prompt=resolved_prompt,
         negative_prompt=req.negative_prompt,
     )

@@ -14,6 +14,14 @@ GUIDANCE_SCALE = 4.5
 MAX_SEQUENCE_LENGTH = 512
 
 
+def _get_model_torch_dtype() -> torch.dtype:
+    if torch.cuda.is_available():
+        # 현재 환경에서는 bfloat16 로드 시 일부 컴포넌트가 float16으로 초기화되어
+        # 추론 중 dtype mismatch가 발생하므로 CUDA에서는 float16을 사용합니다.
+        return torch.float16
+    return torch.float32
+
+
 class StableDiffusionService:
     _instance = None
     _initialized = False
@@ -29,9 +37,11 @@ class StableDiffusionService:
 
         print("🚀 SD 3.5 Medium 모델을 불러오는 중입니다... 잠시만 기다려 주세요.")
 
+        model_torch_dtype = _get_model_torch_dtype()
+
         self._pipe = StableDiffusion3Pipeline.from_pretrained(
             MODEL_ID,
-            torch_dtype=torch.bfloat16,
+            torch_dtype=model_torch_dtype,
         )
         # 모델 컴포넌트를 공유하여 메모리 사용량 절반으로 절감
         self._img2img_pipe = StableDiffusion3Img2ImgPipeline(**self._pipe.components)

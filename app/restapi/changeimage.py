@@ -5,8 +5,6 @@ from fastapi import APIRouter, HTTPException, Response
 from PIL import Image
 from pydantic import BaseModel, Field
 
-from model.diffusion import diffusion_service
-
 router = APIRouter()
 
 
@@ -16,6 +14,15 @@ class ChangeImageRequest(BaseModel):
     negative_prompt: str | None = None
     image_base64: str = Field(..., description="Base64 encoded image bytes (optionally data URL)")
     strength: float = 0.55
+
+
+def _get_diffusion_service():
+    if __package__ == "app.restapi":
+        from ..model.diffusion import diffusion_service
+    else:
+        from model.diffusion import diffusion_service
+
+    return diffusion_service
 
 
 def _resolve_positive_prompt(prompt: str | None, positive_prompt: str | None) -> str:
@@ -45,7 +52,7 @@ async def change_image(req: ChangeImageRequest):
     except Exception as exc:
         raise HTTPException(status_code=400, detail="유효한 base64 이미지가 아닙니다.") from exc
 
-    image = diffusion_service.change_image(
+    image = _get_diffusion_service().change_image(
         positive_prompt=resolved_prompt,
         negative_prompt=req.negative_prompt,
         init_image=init_image,

@@ -82,88 +82,185 @@ def generate_image(
             method="POST",
         )
 
-        with urlopen(request, timeout=300) as upstream_response:
-            body = upstream_response.read()
-            content_type = upstream_response.headers.get_content_type()
+        with urlopen(request, timeout=300) as upfrom typing import Any
 
-        if not content_type.startswith("image/"):
-            out_map: dict[str, Any] = {}
-            out_map.update(get_error_response("Upstream did not return image data."))
-            out_map["upstream_content_type"] = content_type
-            out_map["upstream_body_preview"] = body[:300].decode("utf-8", errors="ignore")
-            return JSONResponse(status_code=502, content=out_map)
-
-        return Response(content=body, media_type=content_type)
-    except Exception as ex:
-        out_map: dict[str, Any] = {}
-        out_map.update(get_error_response(str(ex)))
-        return JSONResponse(status_code=500, content=out_map)
+        import torch
+        from PIL import Image
+        from transformers import AutoModelForCausalLM, AutoProcessor
 
 
-# backend.ini의 [engine] engine_url(기본값: https://nabidream.duckdns.org/model/) 업스트림의 /changeimage 호출하여 이미지를 반환합니다
-@router.post("/changeimage")
-async def changeimage(req: ChangeImageRequest) -> Response:
-    if req.strength < 0.0 or req.strength > 1.0:
-        return JSONResponse(
-            status_code=400,
-            content=get_error_response("strength는 0.0~1.0 범위여야 합니다."),
-        )
+        MODEL_ID = "microsoft/Florence-2-base"
+        MAX_NEW_TOKENS = 1024
+        NUM_BEAMS = 3
+        DEFAULT_TASK_PROMPT = "<DETAILED_CAPTION>"
 
+
+        class FlorenceService:
+            _instance = None
+                _initialized = False
+
+                    def __new__(cls):
+                            if cls._instance is None:
+                                        cls._instance = super().__new__(cls)
+                                                return cls._instance
+
+                                                    def __init__(self):
+                                                            if self._initialized:
+                                                                        return
+
+                                                                                self._device = "cuda" if torch.cuda.is_available() else "cpu"
+                                                                                        print(f"🚀 Florence 모델을 불러오는 중입니다... (device={self._device})")
+
+                                                                                                model: Any = AutoModelForCausalLM.from_pretrained(
+                                                                                                            MODEL_ID,
+                                                                                                                        trust_remote_code=True,
+                                                                                                                                )
+                                                                                                                                        self._model: Any = model.to(self._device)
+
+                                                                                                                                                processor = AutoProcessor.from_pretrained(
+                                                                                                                                                            MODEL_ID,
+                                                                                                                                                                        trust_remote_code=True,
+                                                                                                                                                                                )
+                                                                                                                                                                                        self._processor: Any = processor
+                                                                                                                                                                                                self._initialized = True
+
+                                                                                                                                                                                                    def extract_text_from_image(
+                                                                                                                                                                                                            self,
+                                                                                                                                                                                                                    image_path: str,
+                                                                                                                                                                                                                            task_prompt: str = DEFAULT_TASK_PROMPT,
+                                                                                                                                                                                                                                ) -> Any:
+                                                                                                                                                                                                                                        """
+                                                                                                                                                                                                                                                이미지에서 텍스트 특성을 추출합니다.
+                                                                                                                            from typing import Any
+
+                                                                                                                            import torch
+                                                                                                                            from PIL import Image
+                                                                                                                            from transformers import AutoModelForCausalLM, AutoProcessor
+
+
+                                                                                                                            MODEL_ID = "microsoft/Florence-2-base"
+                                                                                                                            MAX_NEW_TOKENS = 1024
+                                                                                                                            NUM_BEAMS = 3
+                                                                                                                            DEFAULT_TASK_PROMPT = "<DETAILED_CAPTION>"
+
+
+                                                                                                                            class FlorenceService:
+                                                                                                                                _instance = None
+                                                                                                                                    _initialized = False
+
+                                                                                                                                        def __new__(cls):
+                                                                                                                                                if cls._instance is None:
+                                                                                                                                                            cls._instance = super().__new__(cls)
+                                                                                                                                                                    return cls._instance
+
+                                                                                                                                                                        def __init__(self):
+                                                                                                                                                                                if self._initialized:
+                                                                                                                                                                                            return
+
+                                                                                                                                                                                                    self._device = "cuda" if torch.cuda.is_available() else "cpu"
+                                                                                                                                                                                                            print(f"🚀 Florence 모델을 불러오는 중입니다... (device={self._device})")
+
+                                                                                                                                                                                                                    model: Any = AutoModelForCausalLM.from_pretrained(
+                                                                                                                                                                                                                                MODEL_ID,
+                                                                                                                                                                                                                                            trust_remote_code=True,
+                                                                                                                                                                                                                                                    )
+                                                                                                                                                                                                                                                            self._model: Any = model.to(self._device)
+
+                                                                                                                                                                                                                                                                    processor = AutoProcessor.from_pretrained(
+                                                                                                                                                                                                                                                                                MODEL_ID,
+                                                                                                                                                                                                                                                                                            trust_remote_code=True,
+                                                                                                                                                                                                                                                                                                    )
+                                                                                                                                                                                                                                                                                                            self._processor: Any = processor
+                                                                                                                                                                                                                                                                                                                    self._initialized = True
+
+                                                                                                                                                                                                                                                                                                                        def extract_text_from_image(
+                                                                                                                                                                                                                                                                                                                                self,
+                                                                                                                                                                                                                                                                                                                                        image_path: str,
+                                                                                                                                                                                                                                                                                                                                                task_prompt: str = DEFAULT_TASK_PROMPT,
+                                                                                                                                                                                                                                                                                                                                                    ) -> Any:
+                                                                                                                                                                                                                                                                                                                                                            """
+                                                                                                                                                                                                                                                                                                                                                                    이미지에서 텍스트 특성을 추출합니다.
+                                                                                                                                                                                                                                                                                                                                                                            task_prompt 예: '<CAPTION>', '<DETAILED_CAPTION>', '<MORE_DETAILED_CAPTION>'
+                                                                                                                                                                                                                                                                                                                                                                                    """
+                                                                                                                                                                                                                                                                                                                                                                                            image = Image.open(image_path).convert("RGB")
+                                                                                                                                                                                                                                                                                                                                                                                                    inputs: Any = self._processor(
+                                                                                                                                                                                                                                                                                                                                                                                                                text=task_prompt,
+                                                                                                                                                                                                                                                                                                                                                                                                                            images=image,
+                                                                                                                                                                                                                                                                                                                                                                                                                                        return_tensors="pt",
+                                                                                                                                                                                                                                                                                                                                                                                                                                                ).to(self._device)
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                        with torch.inference_mode():
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                    generated_ids = self._model.generate(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    input_ids=inputs["input_ids"],
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    pixel_values=inputs["pixel_values"],
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    max_new_tokens=MAX_NEW_TOKENS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    num_beams=NUM_BEAMS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    do_sample=False,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                )
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        generated_text = self._processor.batch_decode(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    generated_ids,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                skip_special_tokens=False,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        )[0]
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                parsed_answer = self._processor.post_process_generation(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            generated_text,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        task=task_prompt,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    image_size=(image.width, image.height),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            )
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    return parsed_answer[task_prompt]
+
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    florence_service = FlorenceService()
+
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    def extract_text_from_image(image_path: str, task_prompt: str = DEFAULT_TASK_PROMPT) -> Any:
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        # 기존 호출 코드와의 호환을 위해 함수 인터페이스를 유지합니다.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            return florence_service.extract_text_from_image(image_path, task_prompt)
+
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            if __name__ == "__main__":
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                img_path = "your_image.jpg"/workspace/project/2team-GenPrj-model/data/images/coffee.png
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    result = extract_text_from_image(img_path)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        print(f"추출된 객체 특성:\n{result}")import base64
+from io import BytesIO
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+from PIL import Image
+from pydantic import BaseModel, Field
+
+try:
+    from ..model.florence import florence_service
+except ImportError:
+    from model.florence import florence_service
+
+
+router = APIRouter()
+
+
+class Image2TextRequest(BaseModel):
+    image_base64: str = Field(..., description="Base64 encoded image bytes (optionally data URL)")
+    task_prompt: str = "<DETAILED_CAPTION>"
+
+
+@router.post("/image2text")
+async def image2text(req: Image2TextRequest) -> dict[str, Any]:
     raw_base64 = (req.image_base64 or "").strip()
     if not raw_base64:
-        return JSONResponse(
-            status_code=400,
-            content=get_error_response("image_base64는 필수입니다."),
-        )
+        raise HTTPException(status_code=400, detail="image_base64는 필수입니다.")
 
     if "," in raw_base64:
         raw_base64 = raw_base64.split(",", 1)[1]
 
     try:
-        # 유효한 base64 문자열인지 선검증 후 업스트림으로 전달합니다.
-        base64.b64decode(raw_base64, validate=True)
-    except Exception:
-        return JSONResponse(
-            status_code=400,
-            content=get_error_response("유효한 base64 이미지가 아닙니다."),
-        )
+        image_bytes = base64.b64decode(raw_base64, validate=True)
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="유효한 base64 이미지가 아닙니다.") from exc
 
-    try:
-        prompt_bundle = _build_prompt_bundle(
-            prompt=req.prompt,
-            positive_prompt=req.positive_prompt,
-            negative_prompt=req.negative_prompt,
-        )
-        engine_url = _get_engine_base_url()
-        image_url = f"{engine_url}/changeimage"
-        payload = {
-            "positive_prompt": prompt_bundle.positive_prompt,
-            "negative_prompt": prompt_bundle.negative_prompt,
-            "image_base64": raw_base64,
-            "strength": req.strength,
-        }
-        request = Request(
-            image_url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
+    text = florence_service.extract_text_from_pil_image(
+        image=image,
+        task_prompt=(req.task_prompt or "<DETAILED_CAPTION>").strip() or "<DETAILED_CAPTION>",
+    )
 
-        with urlopen(request, timeout=180) as upstream_response:
-            body = upstream_response.read()
-            content_type = upstream_response.headers.get_content_type()
-
-        if not content_type.startswith("image/"):
-            out_map: dict[str, Any] = {}
-            out_map.update(get_error_response("Upstream did not return image data."))
-            out_map["upstream_content_type"] = content_type
-            out_map["upstream_body_preview"] = body[:300].decode("utf-8", errors="ignore")
-            return JSONResponse(status_code=502, content=out_map)
-
-        return Response(content=body, media_type=content_type)
-    except Exception as ex:
-        return JSONResponse(status_code=500, content=get_error_response(str(ex)))
-
-
-백엔드 서버에서 이 모델서버를 위 코드처럼  호출합니다.(포지티브/네가티브를 둘다 넘깁니다.)
-이에 맞게 수정해 주세요.
+    return {"text": text}
