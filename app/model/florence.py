@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 import torch
@@ -11,7 +12,23 @@ MAX_NEW_TOKENS = 1024
 NUM_BEAMS = 3
 DEFAULT_TASK_PROMPT = "<DETAILED_CAPTION>"
 FORCED_BOS_TOKEN_ID = 0
+FLORENCE_DEVICE = os.getenv("FLORENCE_DEVICE", "cpu").strip().lower()
 
+
+def _clear_cuda_memory() -> None:
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
+def _resolve_device() -> str:
+    if FLORENCE_DEVICE == "auto":
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    if FLORENCE_DEVICE == "cuda":
+        if torch.cuda.is_available():
+            return "cuda"
+        print("⚠️ FLORENCE_DEVICE=cuda 이지만 CUDA를 사용할 수 없어 CPU로 폴백합니다.")
+        return "cpu"
+    return "cpu"
 
 class FlorenceService:
     _instance = None
@@ -26,7 +43,7 @@ class FlorenceService:
         if self._initialized:
             return
 
-        self._device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._device = _resolve_device()
         print(f"🚀 Florence 모델을 불러오는 중입니다... (device={self._device})")
 
         model: Any = AutoModelForCausalLM.from_pretrained(
@@ -46,31 +63,37 @@ class FlorenceService:
         self._initialized = True
 
     def _extract_text_from_pil_image(self, image: Image.Image, task_prompt: str) -> Any:
-        inputs: Any = self._processor(
-            text=task_prompt,
-            images=image,
-            return_tensors="pt",
-        ).to(self._device)
+        try:
+            inputs: Any = self._processor(
+                text=task_prompt,
+                images=image,
+                return_tensors="pt",
+            ).to(self._device)
 
-        with torch.inference_mode():
-            generated_ids = self._model.generate(
-                input_ids=inputs["input_ids"],
-                pixel_values=inputs["pixel_values"],
-                max_new_tokens=MAX_NEW_TOKENS,
-                num_beams=NUM_BEAMS,
-                do_sample=False,
+            with torch.inference_mode():
+                generated_ids = self._model.generate(
+                    input_ids=inputs["input_ids"],
+                    pixel_values=inputs["pixel_values"],
+                    max_new_tokens=MAX_NEW_TOKENS,
+                    num_beams=NUM_BEAMS,
+                    do_sample=False,
+                )
+
+            generated_text = self._processor.batch_decode(
+                generated_ids,
+                skip_special_tokens=False,
+            )[0]
+            parsed_answer = self._processor.post_process_generation(
+                generated_text,
+                task=task_prompt,
+                image_size=(image.width, image.height),
             )
-
-        generated_text = self._processor.batch_decode(
-            generated_ids,
-            skip_special_tokens=False,
-        )[0]
-        parsed_answer = self._processor.post_process_generation(
-            generated_text,
-            task=task_prompt,
-            image_size=(image.width, image.height),
-        )
-        return parsed_answer[task_prompt]
+            answer = parsed_answer[task_prompt]
+            del inputs
+            del generated_ids
+            return answer
+        finally:
+            _clear_cuda_memory()
 
     def extract_text_from_image(
         self,
@@ -94,16 +117,14 @@ class FlorenceService:
             task_prompt=task_prompt,
         )
 
-
 florence_service = FlorenceService()
-
 
 def extract_text_from_image(image_path: str, task_prompt: str = DEFAULT_TASK_PROMPT) -> Any:
     # 기존 호출 코드와의 호환을 위해 함수 인터페이스를 유지합니다.
     return florence_service.extract_text_from_image(image_path, task_prompt)
 
-
 if __name__ == "__main__":
     img_path = "/workspace/project/2team-GenPrj-model/data/images/coffee.png"
     result = extract_text_from_image(img_path)
     print(f"추출된 객체 특성:\n{result}")
+    
